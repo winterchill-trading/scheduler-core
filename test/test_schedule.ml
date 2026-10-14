@@ -23,6 +23,7 @@ let show t =
 ;;
 
 let show_due t today = print_s [%sexp (Schedule.due t ~today:(d today) : Schedule.Due.t)]
+
 let ok = function
   | Ok t -> t
   | Error r -> raise_s [%sexp (r : Schedule.Refusal.t)]
@@ -103,7 +104,9 @@ let%expect_test "resume does not pay dates that passed while paused" =
 
 let%expect_test "refusals" =
   let t = monthly_31 () in
-  let print r = print_s [%sexp (Result.map r ~f:ignore : (unit, Schedule.Refusal.t) Result.t)] in
+  let print r =
+    print_s [%sexp (Result.map r ~f:ignore : (unit, Schedule.Refusal.t) Result.t)]
+  in
   print (Schedule.resume t ~today:(d "2027-01-01"));
   let paused = Schedule.pause t |> ok in
   print (Schedule.pause paused);
@@ -132,7 +135,9 @@ let%expect_test "a once schedule completes after its date; skip settles the next
   let t = Schedule.settle t ~index:o.index Skipped in
   show t;
   print_s
-    [%sexp (Result.map (Schedule.next_to_skip t) ~f:ignore : (unit, Schedule.Refusal.t) Result.t)];
+    [%sexp
+      (Result.map (Schedule.next_to_skip t) ~f:ignore
+       : (unit, Schedule.Refusal.t) Result.t)];
   [%expect
     {|
     ((index 0) (date 2027-05-01))

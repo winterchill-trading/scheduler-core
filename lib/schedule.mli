@@ -8,21 +8,20 @@
     active | paused --last date settled--> completed
     v}
 
-    Each date is settled once, in index order: it succeeds, fails, is skipped by the
-    owner or is missed after a gap. A failed date is not retried; the schedule moves on
-    to the next date and pauses after [max_consecutive_failures] failures in a row
-    (default 3). *)
+    Each date is settled once, in index order: it succeeds, fails, is skipped by the owner
+    or is missed after a gap. A failed date is not retried; the schedule moves on to the
+    next date and pauses after [max_consecutive_failures] failures in a row (default 3). *)
 
 open! Core
 
 module Missed_policy : sig
-  (** What happens to dates that passed while nothing ran (an outage, a sleeping
-      laptop in a demo). *)
+  (** What happens to dates that passed while nothing ran (an outage, a sleeping laptop in
+      a demo). *)
   type t =
     | Latest_only
-    (** run only the latest passed date and mark the earlier ones {!Outcome.Missed};
-        the safe choice for payments: a customer back from an outage is not hit by a
-        burst of transfers *)
+    (** run only the latest passed date and mark the earlier ones {!Outcome.Missed}; the
+        safe choice for payments: a customer back from an outage is not hit by a burst of
+        transfers *)
     | Catch_up (** run every passed date, oldest first *)
   [@@deriving bin_io, sexp, compare, equal, hash]
 end
@@ -119,31 +118,31 @@ module Due : sig
 end
 
 (** What an active schedule owes on [today] (dates are due from the start of their day).
-    Empty unless the schedule is active. Under [Latest_only] [run] holds at most one
-    date, the latest on or before [today], and [missed] the unsettled ones before it.
-    Under [Catch_up] [run] holds every unsettled date on or before [today]. *)
+    Empty unless the schedule is active. Under [Latest_only] [run] holds at most one date,
+    the latest on or before [today], and [missed] the unsettled ones before it. Under
+    [Catch_up] [run] holds every unsettled date on or before [today]. *)
 val due : _ t -> today:Date.t -> Due.t
 
-(** Settles the date with this index. Settling an index below {!next_index} is a no-op
-    (a replayed result); an index above it moves past the dates in between without a
-    record of them (the {!Runner} settles them as missed first). A failure counts towards the pause; any other
-    outcome resets the count. A schedule whose last date is settled completes;
-    a cancelled schedule only records the outcome. *)
+(** Settles the date with this index. Settling an index below {!next_index} is a no-op (a
+    replayed result); an index above it moves past the dates in between without a record
+    of them (the {!Runner} settles them as missed first). A failure counts towards the
+    pause; any other outcome resets the count. A schedule whose last date is settled
+    completes; a cancelled schedule only records the outcome. *)
 val settle : 'job t -> index:int -> Outcome.t -> 'job t
 
 val pause : 'job t -> ('job t, Refusal.t) Result.t
 
-(** Resumes from the first date on or after [today]; earlier dates are not run. Resets
-    the failure count. Completes the schedule when no date is left. *)
+(** Resumes from the first date on or after [today]; earlier dates are not run. Resets the
+    failure count. Completes the schedule when no date is left. *)
 val resume : 'job t -> today:Date.t -> ('job t, Refusal.t) Result.t
 
 val cancel : 'job t -> ('job t, Refusal.t) Result.t
 
-(** The date an owner's "skip next" applies to: the next date of an active schedule.
-    The caller settles it as {!Outcome.Skipped}. *)
+(** The date an owner's "skip next" applies to: the next date of an active schedule. The
+    caller settles it as {!Outcome.Skipped}. *)
 val next_to_skip : _ t -> (Occurrence.t, Refusal.t) Result.t
 
-(** The next dates of an active or paused schedule in [\[from, until\]] (at most [limit],
+(** The next dates of an active or paused schedule in [[from, until]] (at most [limit],
     default 1000), for an "upcoming payments" view. *)
 val upcoming : ?limit:int -> _ t -> from:Date.t -> until:Date.t -> Occurrence.t list
 

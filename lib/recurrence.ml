@@ -29,8 +29,8 @@ let start (t : t) = t.start
 let end_date (t : t) = t.end_date
 let max_occurrences (t : t) = t.max_occurrences
 
-(* Months since year 0, so adding [k] months is integer arithmetic and the month and
-   year come back with [/] and [mod]. *)
+(* Months since year 0, so adding [k] months is integer arithmetic and the month and year
+   come back with [/] and [mod]. *)
 let month_number date = (Date.year date * 12) + Month.to_int (Date.month date) - 1
 
 let date_in_month ~month_number ~day =
@@ -45,8 +45,8 @@ let monthly_day (t : t) =
   | _ -> Date.day t.start
 ;;
 
-(* With an explicit day before the start's day (start 20 May, day 5) the first date is
-   in the next month; [monthly_offset] is 0 or 1. *)
+(* With an explicit day before the start's day (start 20 May, day 5) the first date is in
+   the next month; [monthly_offset] is 0 or 1. *)
 let monthly_offset (t : t) =
   let d = date_in_month ~month_number:(month_number t.start) ~day:(monthly_day t) in
   if Date.( < ) d t.start then 1 else 0
@@ -95,8 +95,8 @@ let date t i =
 
 let first_date t = Option.value_exn (date t 0)
 
-(* The smallest index whose raw date is on or after [day] (ignoring bounds), as a
-   guess from arithmetic and then corrected by at most a step either way. *)
+(* The smallest index whose raw date is on or after [day] (ignoring bounds), as a guess
+   from arithmetic and then corrected by at most a step either way. *)
 let raw_index_on_or_after (t : t) day =
   if Date.( <= ) day t.start
   then Some 0
@@ -108,7 +108,9 @@ let raw_index_on_or_after (t : t) day =
       let diff = Date.diff day t.start in
       Some ((diff + step - 1) / step)
     | Monthly _ ->
-      let guess = Int.max 0 (month_number day - month_number t.start - monthly_offset t) in
+      let guess =
+        Int.max 0 (month_number day - month_number t.start - monthly_offset t)
+      in
       let rec fix i =
         match raw_date t i with
         | Some d when Date.( < ) d day -> fix (i + 1)

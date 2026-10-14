@@ -6,11 +6,11 @@
     the run key, records the outcome, and applies it to the schedule (re-read from the
     store, so a pause made while the job ran is kept).
 
-    A date whose claim is fresh is left alone; one whose claim is older than
-    [stale_after] (default 2 minutes) is taken over and the job is called again with
-    the same key and [attempt + 1], which the job replays. A settled date is never run
-    again. The runner works in any monad, so the same code drives tests
-    ([Monad.Ident]) and an Async service ([Deferred]). *)
+    A date whose claim is fresh is left alone; one whose claim is older than [stale_after]
+    (default 2 minutes) is taken over and the job is called again with the same key and
+    [attempt + 1], which the job replays. A settled date is never run again. The runner
+    works in any monad, so the same code drives tests ([Monad.Ident]) and an Async service
+    ([Deferred]). *)
 
 open! Core
 
@@ -76,12 +76,11 @@ module Make
   (** Refused with [Run_in_progress] while the next date is being run. *)
   val cancel : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
-  (** Settles the next date as {!Outcome.Skipped}. Refused with [Run_in_progress]
-      while that date is being run. *)
+  (** Settles the next date as {!Outcome.Skipped}. Refused with [Run_in_progress] while
+      that date is being run. *)
   val skip : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
-  (** Replaces the job parameters of a schedule that has not ended; later dates use
-      them. *)
+  (** Replaces the job parameters of a schedule that has not ended; later dates use them. *)
   val update_job
     :  t
     -> Schedule_id.t

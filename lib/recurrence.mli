@@ -1,9 +1,9 @@
 (** The dates of a schedule: a {!Frequency}, a start date and optional bounds.
 
-    Date [i] (counting from 0) is computed from the start by index, so a monthly
-    schedule starting on 31 January runs on 28 February (29 in a leap year), then
-    31 March, 30 April, and so on, never drifting to the 28th. A date is excluded when
-    it falls after [end_date] or when its index reaches [max_occurrences]. *)
+    Date [i] (counting from 0) is computed from the start by index, so a monthly schedule
+    starting on 31 January runs on 28 February (29 in a leap year), then 31 March, 30
+    April, and so on, never drifting to the 28th. A date is excluded when it falls after
+    [end_date] or when its index reaches [max_occurrences]. *)
 
 open! Core
 
@@ -65,8 +65,7 @@ val last_index_on_or_before : t -> Date.t -> int option
     recurrence has no end. *)
 val dates : ?from_index:int -> t -> (int * Date.t) Sequence.t
 
-(** The dates in the closed range [\[from, until\]], at most [limit] of them (default
-    1000). *)
+(** The dates in the closed range [[from, until]], at most [limit] of them (default 1000). *)
 val between : ?limit:int -> t -> from:Date.t -> until:Date.t -> (int * Date.t) list
 
 (** A start date check for services that accept schedules from users: [`Past] before

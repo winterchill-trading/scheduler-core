@@ -1,8 +1,8 @@
 (** The current time and the time zone that turns it into a calendar date.
 
-    Due dates are calendar dates in the schedule owner's zone: a payment due on
-    1 March in Berlin is due from midnight Berlin time, which is 23:00 UTC on 28
-    February. The clock is a value so tests, replays and demo controls can move time. *)
+    Due dates are calendar dates in the schedule owner's zone: a payment due on 1 March in
+    Berlin is due from midnight Berlin time, which is 23:00 UTC on 28 February. The clock
+    is a value so tests, replays and demo controls can move time. *)
 
 open! Core
 

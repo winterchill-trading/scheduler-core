@@ -1,7 +1,8 @@
 open! Core
 
 let invalid s =
-  String.is_empty s || String.exists s ~f:(fun c -> Char.equal c ':' || Char.is_whitespace c)
+  String.is_empty s
+  || String.exists s ~f:(fun c -> Char.equal c ':' || Char.is_whitespace c)
 ;;
 
 module Stable = struct

@@ -1,6 +1,11 @@
 (library
  (name scheduler_core_test)
- (libraries core core_unix core_unix.time_float_unix base_quickcheck scheduler-core)
+ (libraries
+  core
+  core_unix
+  core_unix.time_float_unix
+  base_quickcheck
+  scheduler-core)
  (inline_tests
   (flags
    (:standard -source-tree-root .)))

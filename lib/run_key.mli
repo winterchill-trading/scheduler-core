@@ -1,8 +1,8 @@
 (** The identity of one run: a schedule and one of its due dates.
 
-    At most one run record exists per key, and the key is what a job passes on as its
-    own idempotency key (a payment request key, an order client id), so a retried run
-    replays the original side effect instead of making a second one. Its text form is
+    At most one run record exists per key, and the key is what a job passes on as its own
+    idempotency key (a payment request key, an order client id), so a retried run replays
+    the original side effect instead of making a second one. Its text form is
     [<schedule id>:<YYYY-MM-DD>]. *)
 
 open! Core

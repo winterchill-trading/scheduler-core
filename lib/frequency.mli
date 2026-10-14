@@ -10,9 +10,9 @@ type t =
   | Weekly (** every 7 days from the start *)
   | Fortnightly (** every 14 days from the start *)
   | Monthly of { day_of_month : int option }
-  (** the same day each month, clamped to the last day of shorter months; [None] takes
-      the start date's day. A given day before the start's day moves the first date to
-      the next month. *)
+  (** the same day each month, clamped to the last day of shorter months; [None] takes the
+      start date's day. A given day before the start's day moves the first date to the
+      next month. *)
   | Every_n_days of int (** every [n] days from the start, [n] in 1..366 *)
 [@@deriving bin_io, sexp, compare, equal, hash]
 

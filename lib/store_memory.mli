@@ -1,5 +1,5 @@
-(** An in-memory {!Store.S} for tests, examples and offline modes. Every call completes
-    at once, so it is trivially atomic within one process. *)
+(** An in-memory {!Store.S} for tests, examples and offline modes. Every call completes at
+    once, so it is trivially atomic within one process. *)
 
 open! Core
 

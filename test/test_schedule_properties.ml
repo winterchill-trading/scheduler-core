@@ -6,7 +6,8 @@ let id = Schedule_id.create_exn "p"
 let gen =
   let open Quickcheck.Generator.Let_syntax in
   let%map r = Gen.recurrence
-  and policy = Quickcheck.Generator.of_list [ Schedule.Missed_policy.Latest_only; Catch_up ]
+  and policy =
+    Quickcheck.Generator.of_list [ Schedule.Missed_policy.Latest_only; Catch_up ]
   and settled = Int.gen_incl 0 5
   and days_after = Int.gen_incl (-30) 900 in
   let t = Schedule.create ~missed_policy:policy ~id ~job:() r in
@@ -31,7 +32,9 @@ let%test_unit "due dates are contiguous from the next index, none after today" =
       assert (Date.( <= ) o.date today));
     (* nothing unsettled on or before today is left out *)
     (match Recurrence.last_index_on_or_before (Schedule.recurrence t) today with
-     | Some last when last >= Schedule.next_index t && Schedule.Status.equal (Schedule.status t) Active ->
+     | Some last
+       when last >= Schedule.next_index t
+            && Schedule.Status.equal (Schedule.status t) Active ->
        [%test_result: int] (List.length all) ~expect:(last - Schedule.next_index t + 1)
      | _ -> [%test_result: int] (List.length all) ~expect:0);
     match Schedule.missed_policy t with
@@ -47,9 +50,7 @@ let%test_unit "the schedule pauses exactly when the failure streak reaches the l
     (Quickcheck.Generator.list_with_length 12 Bool.quickcheck_generator)
     ~sexp_of:[%sexp_of: bool list]
     ~f:(fun outcomes ->
-      let r =
-        Recurrence.create_exn Weekly ~start:(Date.of_string "2027-01-04") ()
-      in
+      let r = Recurrence.create_exn Weekly ~start:(Date.of_string "2027-01-04") () in
       let final, streak, paused_at =
         List.foldi
           outcomes
@@ -80,9 +81,11 @@ let%test_unit "the schedule pauses exactly when the failure streak reaches the l
 
 let%test_unit "stable round trip" =
   Quickcheck.test gen ~sexp_of:sexp_of_case ~f:(fun (t, _) ->
-    let m = (module struct
-      type t = unit Schedule.Stable.V1.t [@@deriving bin_io]
-    end : Binable.S with type t = unit Schedule.t)
+    let m =
+      (module struct
+        type t = unit Schedule.Stable.V1.t [@@deriving bin_io]
+      end : Binable.S
+        with type t = unit Schedule.t)
     in
     [%test_result: unit Schedule.t]
       (Binable.of_string m (Binable.to_string m t))

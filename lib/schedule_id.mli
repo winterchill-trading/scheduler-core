@@ -1,6 +1,5 @@
 (** Opaque identifier of a schedule, chosen by the caller (a database key, a UUID). It
-    must not contain [':'], which separates the identifier from the date in a
-    {!Run_key}. *)
+    must not contain [':'], which separates the identifier from the date in a {!Run_key}. *)
 
 open! Core
 

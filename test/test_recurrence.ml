@@ -7,11 +7,17 @@ let show ?(n = 6) r =
   Recurrence.dates r
   |> Fn.flip Sequence.take n
   |> Sequence.iter ~f:(fun (i, date) ->
-    printf "%d %s %s\n" i (Date.to_string date) (Day_of_week.to_string (Date.day_of_week date)))
+    printf
+      "%d %s %s\n"
+      i
+      (Date.to_string date)
+      (Day_of_week.to_string (Date.day_of_week date)))
 ;;
 
 let%expect_test "monthly on the 31st clamps by index and never drifts" =
-  show ~n:7 (Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2027-01-31") ());
+  show
+    ~n:7
+    (Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2027-01-31") ());
   [%expect
     {|
     0 2027-01-31 SUN
@@ -23,9 +29,10 @@ let%expect_test "monthly on the 31st clamps by index and never drifts" =
     6 2027-07-31 SAT
     |}];
   (* leap year *)
-  show ~n:3 (Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2028-01-31") ());
-  [%expect
-    {|
+  show
+    ~n:3
+    (Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2028-01-31") ());
+  [%expect {|
     0 2028-01-31 MON
     1 2028-02-29 TUE
     2 2028-03-31 FRI
@@ -36,17 +43,18 @@ let%expect_test "an explicit day before the start's day starts next month" =
   show
     ~n:3
     (Recurrence.create_exn (Monthly { day_of_month = Some 5 }) ~start:(d "2027-05-20") ());
-  [%expect
-    {|
+  [%expect {|
     0 2027-06-05 SAT
     1 2027-07-05 MON
     2 2027-08-05 THU
     |}];
   show
     ~n:3
-    (Recurrence.create_exn (Monthly { day_of_month = Some 30 }) ~start:(d "2027-02-03") ());
-  [%expect
-    {|
+    (Recurrence.create_exn
+       (Monthly { day_of_month = Some 30 })
+       ~start:(d "2027-02-03")
+       ());
+  [%expect {|
     0 2027-02-28 SUN
     1 2027-03-30 TUE
     2 2027-04-30 FRI
@@ -55,22 +63,19 @@ let%expect_test "an explicit day before the start's day starts next month" =
 
 let%expect_test "weekly, fortnightly, every N days and once" =
   show ~n:3 (Recurrence.create_exn Weekly ~start:(d "2027-03-01") ());
-  [%expect
-    {|
+  [%expect {|
     0 2027-03-01 MON
     1 2027-03-08 MON
     2 2027-03-15 MON
     |}];
   show ~n:3 (Recurrence.create_exn Fortnightly ~start:(d "2027-03-01") ());
-  [%expect
-    {|
+  [%expect {|
     0 2027-03-01 MON
     1 2027-03-15 MON
     2 2027-03-29 MON
     |}];
   show ~n:3 (Recurrence.create_exn (Every_n_days 10) ~start:(d "2027-03-01") ());
-  [%expect
-    {|
+  [%expect {|
     0 2027-03-01 MON
     1 2027-03-11 THU
     2 2027-03-21 SUN
@@ -95,8 +100,7 @@ let%expect_test "end date and maximum count bound the dates" =
   let r = Recurrence.create_exn Weekly ~start:(d "2027-03-01") ~max_occurrences:2 () in
   show r;
   print_s [%sexp (Recurrence.last_date r : Date.t option)];
-  [%expect
-    {|
+  [%expect {|
     0 2027-03-01 MON
     1 2027-03-08 MON
     (2027-03-08)
@@ -144,8 +148,7 @@ let%expect_test "start date check" =
   check "2027-03-10";
   check "2026-03-10";
   check "2026-03-09";
-  [%expect
-    {|
+  [%expect {|
     (Error Past)
     (Ok ())
     (Ok ())
@@ -154,19 +157,20 @@ let%expect_test "start date check" =
 ;;
 
 let%expect_test "between and index lookups" =
-  let r = Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2027-01-31") () in
+  let r =
+    Recurrence.create_exn (Monthly { day_of_month = None }) ~start:(d "2027-01-31") ()
+  in
   print_s
     [%sexp
       (Recurrence.between r ~from:(d "2027-02-01") ~until:(d "2027-05-30")
        : (int * Date.t) list)];
   print_s
     [%sexp
-      ( Recurrence.first_index_on_or_after r (d "2027-03-01")
-      , Recurrence.last_index_on_or_before r (d "2027-03-30")
-      , Recurrence.last_index_on_or_before r (d "2027-01-30")
-        : int option * int option * int option )];
-  [%expect
-    {|
+      (( Recurrence.first_index_on_or_after r (d "2027-03-01")
+       , Recurrence.last_index_on_or_before r (d "2027-03-30")
+       , Recurrence.last_index_on_or_before r (d "2027-01-30") )
+       : int option * int option * int option)];
+  [%expect {|
     ((1 2027-02-28) (2 2027-03-31) (3 2027-04-30))
     ((2) (1) ())
     |}]

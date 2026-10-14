@@ -15,8 +15,7 @@ module Make (M : Monad.S) (Job : T) = struct
 
   let all t =
     Hashtbl.data t.schedules
-    |> List.sort ~compare:(fun a b ->
-      Schedule_id.compare (Schedule.id a) (Schedule.id b))
+    |> List.sort ~compare:(fun a b -> Schedule_id.compare (Schedule.id a) (Schedule.id b))
   ;;
 
   let find t id = M.return (Hashtbl.find t.schedules id)
@@ -28,8 +27,7 @@ module Make (M : Monad.S) (Job : T) = struct
 
   let active t =
     M.return
-      (List.filter (all t) ~f:(fun s ->
-         Schedule.Status.equal (Schedule.status s) Active))
+      (List.filter (all t) ~f:(fun s -> Schedule.Status.equal (Schedule.status s) Active))
   ;;
 
   let claim t key ~index ~now ~stale_after : Store.Claim.t io =
@@ -45,7 +43,9 @@ module Make (M : Monad.S) (Job : T) = struct
        | None -> take 1
        | Some ({ state = Finished _; _ } as r) -> Finished r
        | Some ({ state = Claimed { attempt; _ }; _ } as r) ->
-         if Run_record.is_running r ~now ~stale_after then Running r else take (attempt + 1))
+         if Run_record.is_running r ~now ~stale_after
+         then Running r
+         else take (attempt + 1))
   ;;
 
   let finish t key ~index outcome ~now =
@@ -53,7 +53,10 @@ module Make (M : Monad.S) (Job : T) = struct
       match Hashtbl.find t.runs key with
       | Some ({ state = Finished _; _ } as r) -> r
       | Some { state = Claimed { attempt; _ }; _ } ->
-        { key; index; state = Finished { outcome; attempts = attempt; finished_at = now } }
+        { key
+        ; index
+        ; state = Finished { outcome; attempts = attempt; finished_at = now }
+        }
       | None ->
         { key; index; state = Finished { outcome; attempts = 0; finished_at = now } }
     in

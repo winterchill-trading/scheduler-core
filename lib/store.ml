@@ -25,7 +25,14 @@ module type S = sig
     -> stale_after:Time_ns.Span.t
     -> Claim.t io
 
-  val finish : t -> Run_key.t -> index:int -> Outcome.t -> now:Time_ns.t -> Run_record.t io
+  val finish
+    :  t
+    -> Run_key.t
+    -> index:int
+    -> Outcome.t
+    -> now:Time_ns.t
+    -> Run_record.t io
+
   val record : t -> Run_key.t -> Run_record.t option io
   val records : t -> Schedule_id.t -> Run_record.t list io
 end

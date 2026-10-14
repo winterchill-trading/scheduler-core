@@ -131,7 +131,8 @@ let with_job t job = { t with job }
 let key t (o : Occurrence.t) = Run_key.create t.id o.date
 
 let occurrence t index =
-  Option.map (Recurrence.date t.recurrence index) ~f:(fun date -> { Occurrence.index; date })
+  Option.map (Recurrence.date t.recurrence index) ~f:(fun date ->
+    { Occurrence.index; date })
 ;;
 
 let next t = if Status.is_ended t.status then None else occurrence t t.next_index
@@ -207,7 +208,9 @@ let resume t ~today =
      | None -> Ok { t with status = Completed; consecutive_failures = 0 }
      | Some i ->
        let next_index = Int.max i t.next_index in
-       Ok (complete_if_done { t with status = Active; next_index; consecutive_failures = 0 }))
+       Ok
+         (complete_if_done
+            { t with status = Active; next_index; consecutive_failures = 0 }))
   | Active -> Error Refusal.Not_paused
   | Completed | Cancelled -> Error Refusal.Already_ended
 ;;

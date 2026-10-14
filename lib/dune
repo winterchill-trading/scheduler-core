@@ -1,0 +1,6 @@
+(library
+ (name scheduler_core)
+ (public_name scheduler-core)
+ (libraries core)
+ (preprocess
+  (pps ppx_jane)))

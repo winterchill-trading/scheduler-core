@@ -10,7 +10,12 @@
 
     Each date is settled once, in index order: it succeeds, fails, is skipped by the owner
     or is missed after a gap. A failed date is not retried; the schedule moves on to the
-    next date and pauses after [max_consecutive_failures] failures in a row (default 3). *)
+    next date and pauses after [max_consecutive_failures] failures in a row (default 3).
+
+    By default the recurrence's [max_occurrences] bounds the {e dates}: a skipped, missed
+    or failed date uses one up. With [~max_occurrences_counts:Successful_runs] it bounds
+    successful {e runs} instead: "pay 12 instalments" keeps going past skipped, missed and
+    failed dates until 12 runs succeeded (or [end_date] is passed). *)
 
 open! Core
 
@@ -33,6 +38,14 @@ module Pause_reason : sig
         { count : int
         ; last_reason : string
         }
+  [@@deriving bin_io, sexp, compare, equal, hash]
+end
+
+module Max_occurrences_counts : sig
+  (** What the recurrence's [max_occurrences] counts. *)
+  type t =
+    | Dates (** every settled date, whatever its outcome; the default *)
+    | Successful_runs (** only dates settled as {!Outcome.Succeeded} *)
   [@@deriving bin_io, sexp, compare, equal, hash]
 end
 
@@ -76,10 +89,11 @@ type 'job t [@@deriving sexp, compare, equal]
 val default_max_consecutive_failures : int
 
 (** A new active schedule positioned on its first date. Raises if
-    [max_consecutive_failures] is below 1. *)
+    [max_consecutive_failures] is below 1. [max_occurrences_counts] defaults to [Dates]. *)
 val create
   :  ?max_consecutive_failures:int
   -> ?missed_policy:Missed_policy.t
+  -> ?max_occurrences_counts:Max_occurrences_counts.t
   -> id:Schedule_id.t
   -> job:'job
   -> Recurrence.t
@@ -99,6 +113,7 @@ val next_index : _ t -> int
 val succeeded : _ t -> int
 
 val consecutive_failures : _ t -> int
+val max_occurrences_counts : _ t -> Max_occurrences_counts.t
 
 (** The next unsettled date of an active or paused schedule. *)
 val next : _ t -> Occurrence.t option
@@ -139,15 +154,28 @@ val resume : 'job t -> today:Date.t -> ('job t, Refusal.t) Result.t
 val cancel : 'job t -> ('job t, Refusal.t) Result.t
 
 (** The date an owner's "skip next" applies to: the next date of an active schedule. The
-    caller settles it as {!Outcome.Skipped}. *)
-val next_to_skip : _ t -> (Occurrence.t, Refusal.t) Result.t
+    caller settles it as {!Outcome.Skipped}.
+
+    With [today], a paused schedule answers too: the date it would run first if resumed on
+    [today] (its first unsettled date on or after [today]), so an owner can skip a date
+    ahead of resuming. Without [today] a paused schedule is refused with [Not_active]. *)
+val next_to_skip : ?today:Date.t -> _ t -> (Occurrence.t, Refusal.t) Result.t
 
 (** The next dates of an active or paused schedule in [[from, until]] (at most [limit],
-    default 1000), for an "upcoming payments" view. *)
+    default 1000), for an "upcoming payments" view. When successful runs are counted, at
+    most the runs still owed are listed. *)
 val upcoming : ?limit:int -> _ t -> from:Date.t -> until:Date.t -> Occurrence.t list
 
 module Stable : sig
   module V1 : sig
+    (** The original shape, without [max_occurrences_counts]: reading gives [Dates];
+        writing a schedule that counts [Successful_runs] raises (use {!V2}). *)
+    type nonrec 'job t = 'job t [@@deriving bin_io, sexp, compare, equal]
+  end
+
+  module V2 : sig
+    (** V1 plus [max_occurrences_counts]. The sexp omits the field when it is [Dates], so
+        V2 reads V1 sexps. *)
     type nonrec 'job t = 'job t [@@deriving bin_io, sexp, compare, equal]
   end
 end

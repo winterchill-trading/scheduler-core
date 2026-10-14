@@ -1,6 +1,7 @@
 open! Core
 
-module Stable = struct
+(* The persisted shapes; [Stable] at the end of the file exposes them. *)
+module Repr = struct
   module V1 = struct
     module Missed_policy = struct
       type t =
@@ -41,13 +42,38 @@ module Stable = struct
       }
     [@@deriving bin_io, sexp, compare, equal]
   end
+
+  module V2 = struct
+    module Max_occurrences_counts = struct
+      type t =
+        | Dates
+        | Successful_runs
+      [@@deriving bin_io, sexp, compare, equal, hash]
+    end
+
+    type 'job t =
+      { id : Schedule_id.Stable.V1.t
+      ; job : 'job
+      ; recurrence : Recurrence.Stable.V1.t
+      ; status : V1.Status.t
+      ; missed_policy : V1.Missed_policy.t
+      ; max_consecutive_failures : int
+      ; next_index : int
+      ; succeeded : int
+      ; consecutive_failures : int
+      ; max_occurrences_counts : Max_occurrences_counts.t
+           [@sexp.default Dates] [@sexp_drop_default.equal]
+      }
+    [@@deriving bin_io, sexp, compare, equal]
+  end
 end
 
-module Missed_policy = Stable.V1.Missed_policy
-module Pause_reason = Stable.V1.Pause_reason
+module Missed_policy = Repr.V1.Missed_policy
+module Pause_reason = Repr.V1.Pause_reason
+module Max_occurrences_counts = Repr.V2.Max_occurrences_counts
 
 module Status = struct
-  include Stable.V1.Status
+  include Repr.V1.Status
 
   let name = function
     | Active -> "active"
@@ -79,7 +105,7 @@ module Occurrence = struct
   [@@deriving sexp, compare, equal]
 end
 
-type 'job t = 'job Stable.V1.t =
+type 'job t = 'job Repr.V2.t =
   { id : Schedule_id.t
   ; job : 'job
   ; recurrence : Recurrence.t
@@ -89,14 +115,51 @@ type 'job t = 'job Stable.V1.t =
   ; next_index : int
   ; succeeded : int
   ; consecutive_failures : int
+  ; max_occurrences_counts : Max_occurrences_counts.t
+       [@sexp.default Dates] [@sexp_drop_default.equal]
   }
 [@@deriving sexp, compare, equal]
+
+let of_v1 (v1 : _ Repr.V1.t) =
+  { id = v1.id
+  ; job = v1.job
+  ; recurrence = v1.recurrence
+  ; status = v1.status
+  ; missed_policy = v1.missed_policy
+  ; max_consecutive_failures = v1.max_consecutive_failures
+  ; next_index = v1.next_index
+  ; succeeded = v1.succeeded
+  ; consecutive_failures = v1.consecutive_failures
+  ; max_occurrences_counts = Dates
+  }
+;;
+
+let to_v1 (t : _ t) : _ Repr.V1.t =
+  (match t.max_occurrences_counts with
+   | Dates -> ()
+   | Successful_runs ->
+     raise_s
+       [%message
+         "Schedule.Stable.V1 cannot hold a schedule counting successful runs; use V2"
+           ~id:(t.id : Schedule_id.t)]);
+  { id = t.id
+  ; job = t.job
+  ; recurrence = t.recurrence
+  ; status = t.status
+  ; missed_policy = t.missed_policy
+  ; max_consecutive_failures = t.max_consecutive_failures
+  ; next_index = t.next_index
+  ; succeeded = t.succeeded
+  ; consecutive_failures = t.consecutive_failures
+  }
+;;
 
 let default_max_consecutive_failures = 3
 
 let create
   ?(max_consecutive_failures = default_max_consecutive_failures)
   ?(missed_policy = Missed_policy.Latest_only)
+  ?(max_occurrences_counts = Max_occurrences_counts.Dates)
   ~id
   ~job
   recurrence
@@ -115,6 +178,7 @@ let create
   ; next_index = 0
   ; succeeded = 0
   ; consecutive_failures = 0
+  ; max_occurrences_counts
   }
 ;;
 
@@ -127,12 +191,31 @@ let max_consecutive_failures t = t.max_consecutive_failures
 let next_index t = t.next_index
 let succeeded t = t.succeeded
 let consecutive_failures t = t.consecutive_failures
+let max_occurrences_counts t = t.max_occurrences_counts
 let with_job t job = { t with job }
 let key t (o : Occurrence.t) = Run_key.create t.id o.date
 
+(* When successful runs are counted, the dates themselves are unbounded by
+   [max_occurrences] (only [end_date] ends them); the count ends the schedule instead. *)
+let dates t =
+  match t.max_occurrences_counts with
+  | Dates -> t.recurrence
+  | Successful_runs -> Recurrence.without_max_occurrences t.recurrence
+;;
+
+let runs_left t =
+  match t.max_occurrences_counts, Recurrence.max_occurrences t.recurrence with
+  | Dates, _ | Successful_runs, None -> None
+  | Successful_runs, Some max -> Some (Int.max 0 (max - t.succeeded))
+;;
+
 let occurrence t index =
-  Option.map (Recurrence.date t.recurrence index) ~f:(fun date ->
-    { Occurrence.index; date })
+  if Option.equal Int.equal (runs_left t) (Some 0)
+  then None
+  else
+    Option.map
+      (Recurrence.date (dates t) index)
+      ~f:(fun date -> { Occurrence.index; date })
 ;;
 
 let next t = if Status.is_ended t.status then None else occurrence t t.next_index
@@ -148,7 +231,7 @@ module Due = struct
 end
 
 let unsettled_until t ~today =
-  match Recurrence.last_index_on_or_before t.recurrence today with
+  match Recurrence.last_index_on_or_before (dates t) today with
   | Some last when last >= t.next_index ->
     List.range t.next_index last ~stop:`inclusive |> List.filter_map ~f:(occurrence t)
   | _ -> []
@@ -168,7 +251,7 @@ let due t ~today =
 let complete_if_done t =
   match t.status with
   | Active | Paused _ ->
-    if Option.is_none (Recurrence.date t.recurrence t.next_index)
+    if Option.is_none (occurrence t t.next_index)
     then { t with status = Completed }
     else t
   | Completed | Cancelled -> t
@@ -204,7 +287,7 @@ let pause t =
 let resume t ~today =
   match t.status with
   | Paused _ ->
-    (match Recurrence.first_index_on_or_after t.recurrence today with
+    (match Recurrence.first_index_on_or_after (dates t) today with
      | None -> Ok { t with status = Completed; consecutive_failures = 0 }
      | Some i ->
        let next_index = Int.max i t.next_index in
@@ -221,20 +304,64 @@ let cancel t =
   | Completed | Cancelled -> Error Refusal.Already_ended
 ;;
 
-let next_to_skip t =
-  match t.status with
-  | Active ->
+let next_to_skip ?today t =
+  match t.status, today with
+  | Active, _ ->
     (match next t with
      | Some o -> Ok o
      | None -> Error Refusal.Nothing_to_skip)
-  | Paused _ -> Error Refusal.Not_active
-  | Completed | Cancelled -> Error Refusal.Already_ended
+  | Paused _, Some today ->
+    (* The date resuming today would run first: dates before today are never run. *)
+    (match Recurrence.first_index_on_or_after (dates t) today with
+     | None -> Error Refusal.Nothing_to_skip
+     | Some i ->
+       (match occurrence t (Int.max i t.next_index) with
+        | Some o -> Ok o
+        | None -> Error Refusal.Nothing_to_skip))
+  | Paused _, None -> Error Refusal.Not_active
+  | (Completed | Cancelled), _ -> Error Refusal.Already_ended
 ;;
 
 let upcoming ?limit t ~from ~until =
   match next t with
   | None -> []
   | Some next ->
-    Recurrence.between ?limit t.recurrence ~from:(Date.max from next.date) ~until
+    let limit =
+      match runs_left t with
+      | None -> limit
+      | Some left -> Some (Int.min left (Option.value limit ~default:1000))
+    in
+    Recurrence.between ?limit (dates t) ~from:(Date.max from next.date) ~until
     |> List.map ~f:(fun (index, date) -> { Occurrence.index; date })
 ;;
+
+module Stable = struct
+  module V1 = struct
+    type nonrec 'job t = 'job t [@@deriving compare, equal]
+
+    (* Without a uuid so the bin_prot shape, and its pinned digest, stays that of V1. *)
+    include
+      Binable.Of_binable1_without_uuid [@alert "-legacy"]
+        (Repr.V1)
+        (struct
+          type nonrec 'job t = 'job t
+
+          let to_binable = to_v1
+          let of_binable = of_v1
+        end)
+
+    include
+      Sexpable.Of_sexpable1
+        (Repr.V1)
+        (struct
+          type nonrec 'job t = 'job t
+
+          let to_sexpable = to_v1
+          let of_sexpable = of_v1
+        end)
+  end
+
+  module V2 = struct
+    type 'job t = 'job Repr.V2.t [@@deriving bin_io, sexp, compare, equal]
+  end
+end

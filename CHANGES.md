@@ -18,6 +18,12 @@ All notable changes to this project are documented here. The format follows
 - `Schedule.Stable.V2` with the new field. `Stable.V1` keeps its shape and digest, reads
   as `Dates`, and refuses to write a schedule counting successful runs.
 - `Recurrence.without_max_occurrences`.
+- `Schedule.Position`, `Schedule.position` and `Schedule.restore`: rebuild a schedule
+  from a stored position (the last date behind it, such as the last paid date, the
+  success count, failures in a row and the status) without replaying run history.
+  Inconsistent positions are refused with `Schedule.Restore_error`. A Quickcheck
+  property checks that restoring and then running equals running from history.
+  `Schedule.Stable.Position.V1` has a pinned digest.
 
 ## 0.1.0
 

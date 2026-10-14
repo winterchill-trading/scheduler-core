@@ -14,7 +14,7 @@ module State : sig
         }
     | Finished of
         { outcome : Outcome.t
-        ; attempts : int (** how many claims it took; 0 for a date never run *)
+        ; attempts : int (** claims taken on the date; 0 when it was settled without one *)
         ; finished_at : Time_ns.t
         }
   [@@deriving sexp, compare, equal]

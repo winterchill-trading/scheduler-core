@@ -55,7 +55,15 @@ struct
   let store t = t.store
   let clock t = t.clock
 
-  let add t ?max_consecutive_failures ?missed_policy ~id job recurrence =
+  let add
+    t
+    ?max_consecutive_failures
+    ?missed_policy
+    ?max_occurrences_counts
+    ~id
+    job
+    recurrence
+    =
     match Job.validate job recurrence with
     | Error e -> return (Error (Command_error.Invalid_job e))
     | Ok () ->
@@ -63,7 +71,13 @@ struct
        | Some _ -> return (Error (Command_error.Duplicate_schedule id))
        | None ->
          let s =
-           Schedule.create ?max_consecutive_failures ?missed_policy ~id ~job recurrence
+           Schedule.create
+             ?max_consecutive_failures
+             ?missed_policy
+             ?max_occurrences_counts
+             ~id
+             ~job
+             recurrence
          in
          let%map () = Store.save t.store s in
          Ok s)
@@ -121,9 +135,10 @@ struct
       Some s
   ;;
 
-  let skip t id =
+  let skip ?(paused = false) t id =
     with_schedule t id ~f:(fun s ->
-      match Schedule.next_to_skip s with
+      let today = if paused then Some (Clock.today t.clock) else None in
+      match Schedule.next_to_skip ?today s with
       | Error r -> return (Error (Command_error.Refused r))
       | Ok o ->
         let key = Schedule.key s o in

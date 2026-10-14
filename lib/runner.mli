@@ -70,6 +70,7 @@ module Make
     :  t
     -> ?max_consecutive_failures:int
     -> ?missed_policy:Schedule.Missed_policy.t
+    -> ?max_occurrences_counts:Schedule.Max_occurrences_counts.t
     -> id:Schedule_id.t
     -> Job.t
     -> Recurrence.t
@@ -85,8 +86,14 @@ module Make
   val cancel : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
   (** Settles the next date as {!Outcome.Skipped}. Refused with [Run_in_progress] while
-      that date is being run. *)
-  val skip : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
+      that date is being run. With [~paused:true] (default [false]) a paused schedule can
+      be skipped too: the date skipped is the one resuming today would run first (see
+      {!Schedule.next_to_skip}); the schedule stays paused. *)
+  val skip
+    :  ?paused:bool
+    -> t
+    -> Schedule_id.t
+    -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
   (** Replaces the job parameters of a schedule that has not ended; later dates use them. *)
   val update_job

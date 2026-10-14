@@ -75,6 +75,11 @@ Check with `gh run list --limit 1`, then at most one `gh run watch <id> --exit-s
 - Tests that load named time zones need `core_unix.time_float_unix`; the library takes a
   `Time_float.Zone.t`.
 - The main module `lib/scheduler_core.ml` must re-export every new module.
+- `Schedule.t` is the V2 record; `Schedule.Stable.V1` converts through the V1 shape with
+  `Binable.Of_binable1_without_uuid` so its digest stays pinned (a `with_uuid` variant
+  would change it). With `Successful_runs`, dates come from
+  `Recurrence.without_max_occurrences` and completion from the success count; route any
+  new date lookup in `schedule.ml` through the local `dates`/`occurrence` helpers.
 
 ## Where to read more
 

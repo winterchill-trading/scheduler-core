@@ -198,6 +198,11 @@ struct
       in
       (* If another runner finished first, its outcome is the one that counts. *)
       let outcome = Option.value (Run_record.outcome record) ~default:outcome in
+      let status : Execution.status =
+        match status with
+        | Ran { attempt; _ } -> Ran { attempt; outcome }
+        | other -> other
+      in
       (match%map apply t id ~index:o.index outcome with
        | Some s when is_active s -> `Continue (execution status)
        | _ -> `Stop (execution status))
@@ -205,7 +210,9 @@ struct
 
   let process t s =
     let { Schedule.Due.run; missed } = Schedule.due s ~today:(Clock.today t.clock) in
-    let dates = List.map missed ~f:(fun o -> o, `Missed) @ List.map run ~f:(fun o -> o, `Run) in
+    let dates =
+      List.map missed ~f:(fun o -> o, `Missed) @ List.map run ~f:(fun o -> o, `Run)
+    in
     fold_until dates ~init:[] ~f:(fun (o, what) ->
       (* each date works on the latest saved schedule *)
       match%bind Store.find t.store (Schedule.id s) with

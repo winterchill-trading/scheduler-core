@@ -80,6 +80,9 @@ Check with `gh run list --limit 1`, then at most one `gh run watch <id> --exit-s
   would change it). With `Successful_runs`, dates come from
   `Recurrence.without_max_occurrences` and completion from the success count; route any
   new date lookup in `schedule.ml` through the local `dates`/`occurrence` helpers.
+- `Schedule.restore` turns `Position.through` back into an index by counting dates on or
+  before it, which relies on dates strictly increasing. `position` names the date of
+  `next_index - 1`, which may be one `resume` passed over rather than one settled.
 
 ## Where to read more
 

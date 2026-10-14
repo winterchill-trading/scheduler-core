@@ -9,4 +9,7 @@ for `scheduler-dates` in `cli.t/`.
 - `test_stable.ml` pins bin_prot digests: a change there is a wire break.
 - `test_runner_properties.ml` drives two runners on one store with crashes, pauses,
   resumes and skips; keep it passing before touching `lib/runner.ml`.
+- `test_schedule_restore.ml` checks `restore (position t) = t` and that running on
+  from a restored schedule matches running on from the original; any new `Schedule.t`
+  field must be carried by `Schedule.Position` or derived, or that property fails.
 - Generators shared between files live in `gen.ml`.

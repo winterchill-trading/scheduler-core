@@ -33,6 +33,16 @@ module type S = sig
     -> now:Time_ns.t
     -> Run_record.t io
 
+  val settle_unclaimed
+    :  t
+    -> Run_key.t
+    -> index:int
+    -> Outcome.t
+    -> now:Time_ns.t
+    -> [ `Settled of Run_record.t | `Claimed of Run_record.t | `Finished of Run_record.t ]
+         io
+
+  val claimed : t -> Run_record.t list io
   val record : t -> Run_key.t -> Run_record.t option io
   val records : t -> Schedule_id.t -> Run_record.t list io
 end

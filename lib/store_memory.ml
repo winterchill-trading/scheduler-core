@@ -64,6 +64,29 @@ module Make (M : Monad.S) (Job : T) = struct
     M.return record
   ;;
 
+  let settle_unclaimed t key ~index outcome ~now =
+    M.return
+      (match Hashtbl.find t.runs key with
+       | Some ({ state = Finished _; _ } as r) -> `Finished r
+       | Some ({ state = Claimed _; _ } as r) -> `Claimed r
+       | None ->
+         let r : Run_record.t =
+           { key; index; state = Finished { outcome; attempts = 0; finished_at = now } }
+         in
+         Hashtbl.set t.runs ~key ~data:r;
+         `Settled r)
+  ;;
+
+  let claimed t =
+    Hashtbl.data t.runs
+    |> List.filter ~f:(fun (r : Run_record.t) ->
+      match r.state with
+      | Claimed _ -> true
+      | Finished _ -> false)
+    |> List.sort ~compare:(fun (a : Run_record.t) b -> Run_key.compare a.key b.key)
+    |> M.return
+  ;;
+
   let record t key = M.return (Hashtbl.find t.runs key)
 
   let records t id =

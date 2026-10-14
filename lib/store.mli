@@ -45,7 +45,7 @@ module type S = sig
     -> stale_after:Time_ns.Span.t
     -> Claim.t io
 
-  (** Settles the date. The first outcome written wins: finishing a finished record
+  (** Settles a claimed date. The first outcome written wins: finishing a finished record
       returns it unchanged. *)
   val finish
     :  t
@@ -54,6 +54,22 @@ module type S = sig
     -> Outcome.t
     -> now:Time_ns.t
     -> Run_record.t io
+
+  (** Settles a date that was never claimed (a missed or skipped date) in one atomic
+      insert. [`Claimed] means a run claim exists, so the job may already have done its
+      work and the date must not be settled this way; [`Finished] returns the outcome
+      already recorded. *)
+  val settle_unclaimed
+    :  t
+    -> Run_key.t
+    -> index:int
+    -> Outcome.t
+    -> now:Time_ns.t
+    -> [ `Settled of Run_record.t | `Claimed of Run_record.t | `Finished of Run_record.t ]
+         io
+
+  (** Every unfinished claim, on any schedule. *)
+  val claimed : t -> Run_record.t list io
 
   val record : t -> Run_key.t -> Run_record.t option io
 

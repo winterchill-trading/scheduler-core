@@ -81,26 +81,30 @@ struct
   ;;
 
   (* Whether a runner holds a fresh claim on the schedule's next date. *)
-  let next_is_running t s =
+  (* Whether the schedule's next date carries an unfinished run claim, fresh or stale. The
+     job may have done its work under that claim, so nothing may move the schedule past
+     the date until a runner has replayed the job and recorded the outcome. *)
+  let next_is_claimed t s =
     match Schedule.next s with
     | None -> return false
     | Some o ->
       (match%map Store.record t.store (Schedule.key s o) with
-       | None -> false
-       | Some r ->
-         Run_record.is_running r ~now:(Clock.now t.clock) ~stale_after:t.stale_after)
+       | Some { state = Claimed _; _ } -> true
+       | Some { state = Finished _; _ } | None -> false)
   ;;
 
   let pause t id = with_schedule t id ~f:(fun s -> save_result t (Schedule.pause s))
 
   let resume t id =
     with_schedule t id ~f:(fun s ->
-      save_result t (Schedule.resume s ~today:(Clock.today t.clock)))
+      if%bind next_is_claimed t s
+      then return (Error Command_error.Run_in_progress)
+      else save_result t (Schedule.resume s ~today:(Clock.today t.clock)))
   ;;
 
   let cancel t id =
     with_schedule t id ~f:(fun s ->
-      if%bind next_is_running t s
+      if%bind next_is_claimed t s
       then return (Error Command_error.Run_in_progress)
       else save_result t (Schedule.cancel s))
   ;;
@@ -121,21 +125,22 @@ struct
       | Error r -> return (Error (Command_error.Refused r))
       | Ok o ->
         let key = Schedule.key s o in
-        let now = Clock.now t.clock in
         (match%bind
-           Store.claim t.store key ~index:o.index ~now ~stale_after:t.stale_after
+           Store.settle_unclaimed
+             t.store
+             key
+             ~index:o.index
+             Skipped
+             ~now:(Clock.now t.clock)
          with
-         | Running _ -> return (Error Command_error.Run_in_progress)
-         | Finished r ->
-           (* settled meanwhile; catch the schedule up and let the owner retry *)
-           let%map _ =
+         | `Claimed _ -> return (Error Command_error.Run_in_progress)
+         | `Finished r ->
+           (* settled meanwhile; catch the schedule up and let the owner look again *)
+           let%map (_ : Job.t Schedule.t option) =
              apply t id ~index:o.index (Option.value_exn (Run_record.outcome r))
            in
            Error Command_error.Run_in_progress
-         | Claimed _ ->
-           let%bind (_ : Run_record.t) =
-             Store.finish t.store key ~index:o.index Skipped ~now
-           in
+         | `Settled _ ->
            (match%map apply t id ~index:o.index Skipped with
             | Some s -> Ok s
             | None -> Error (Command_error.Unknown_schedule id))))
@@ -164,9 +169,14 @@ struct
 
   let is_active s = Schedule.Status.equal (Schedule.status s) Active
 
-  (* Settles one date: [`Missed] marks it missed, [`Run] runs the job. Returns the
-     execution and whether to go on with the schedule's later dates. *)
-  let settle_date t (s : Job.t Schedule.t) (o : Schedule.Occurrence.t) ~what =
+  let continue_if_active t id ~index outcome execution =
+    match%map apply t id ~index outcome with
+    | Some s when is_active s -> `Continue execution
+    | Some _ | None -> `Stop execution
+  ;;
+
+  (* Claims a date and runs its job (a replay when the claim was taken over). *)
+  let run_date t (s : Job.t Schedule.t) (o : Schedule.Occurrence.t) =
     let id = Schedule.id s in
     let key = Schedule.key s o in
     let execution status = { Execution.key; index = o.index; status } in
@@ -175,37 +185,46 @@ struct
     | Running _ -> return (`Stop (execution Busy))
     | Finished r ->
       let outcome = Option.value_exn (Run_record.outcome r) in
-      (match%map apply t id ~index:o.index outcome with
-       | Some s when is_active s -> `Continue (execution (Already_settled outcome))
-       | _ -> `Stop (execution (Already_settled outcome)))
+      continue_if_active t id ~index:o.index outcome (execution (Already_settled outcome))
     | Claimed { attempt } ->
-      let%bind outcome, status =
-        match what with
-        | `Missed -> return (Outcome.Missed, Execution.Marked_missed)
-        | `Run ->
-          let%map result =
-            Job.run (Schedule.job s) { Context.key; index = o.index; attempt; now }
-          in
-          let outcome : Outcome.t =
-            match result with
-            | Ok reference -> Succeeded { reference }
-            | Error reason -> Failed { reason }
-          in
-          outcome, Execution.Ran { attempt; outcome }
+      let%bind result =
+        Job.run (Schedule.job s) { Context.key; index = o.index; attempt; now }
+      in
+      let outcome : Outcome.t =
+        match result with
+        | Ok reference -> Succeeded { reference }
+        | Error reason -> Failed { reason }
       in
       let%bind record =
         Store.finish t.store key ~index:o.index outcome ~now:(Clock.now t.clock)
       in
       (* If another runner finished first, its outcome is the one that counts. *)
       let outcome = Option.value (Run_record.outcome record) ~default:outcome in
-      let status : Execution.status =
-        match status with
-        | Ran { attempt; _ } -> Ran { attempt; outcome }
-        | other -> other
-      in
-      (match%map apply t id ~index:o.index outcome with
-       | Some s when is_active s -> `Continue (execution status)
-       | _ -> `Stop (execution status))
+      continue_if_active
+        t
+        id
+        ~index:o.index
+        outcome
+        (execution (Ran { attempt; outcome }))
+  ;;
+
+  (* Marks a passed-over date missed, unless a run claim exists on it: then the job may
+     have run, so the date is run (replayed) instead once the claim is stale. *)
+  let miss_date t (s : Job.t Schedule.t) (o : Schedule.Occurrence.t) =
+    let id = Schedule.id s in
+    let key = Schedule.key s o in
+    let execution status = { Execution.key; index = o.index; status } in
+    let now = Clock.now t.clock in
+    match%bind Store.settle_unclaimed t.store key ~index:o.index Missed ~now with
+    | `Settled _ ->
+      continue_if_active t id ~index:o.index Missed (execution Marked_missed)
+    | `Finished r ->
+      let outcome = Option.value_exn (Run_record.outcome r) in
+      continue_if_active t id ~index:o.index outcome (execution (Already_settled outcome))
+    | `Claimed r ->
+      if Run_record.is_running r ~now ~stale_after:t.stale_after
+      then return (`Stop (execution Busy))
+      else run_date t s o
   ;;
 
   let process t s =
@@ -218,19 +237,41 @@ struct
       match%bind Store.find t.store (Schedule.id s) with
       | Some s when is_active s ->
         if Schedule.next_index s <= o.index
-        then settle_date t s o ~what
+        then (
+          match what with
+          | `Missed -> miss_date t s o
+          | `Run -> run_date t s o)
         else (* settled by another runner meanwhile *) return `Pass
       | Some _ | None -> return `Halt)
   ;;
 
+  (* Stale claims on schedules that are not active (paused while their job ran) are
+     replayed here; active schedules reach theirs through [process]. *)
+  let resolve_stale_claims t =
+    let now = Clock.now t.clock in
+    let%bind claims = Store.claimed t.store in
+    let stale =
+      List.filter claims ~f:(fun r ->
+        not (Run_record.is_running r ~now ~stale_after:t.stale_after))
+    in
+    fold_until stale ~init:[] ~f:(fun (r : Run_record.t) ->
+      match%bind Store.find t.store r.key.schedule with
+      | Some s when (not (is_active s)) && Schedule.next_index s <= r.index ->
+        (match%map run_date t s { index = r.index; date = r.key.due_date } with
+         | `Continue e | `Stop e -> `Continue e
+         | (`Pass | `Halt) as other -> other)
+      | Some _ | None -> return `Pass)
+  ;;
+
   let tick t =
+    let%bind resolved = resolve_stale_claims t in
     let%bind active = Store.active t.store in
     let%map per_schedule =
       fold_until active ~init:[] ~f:(fun s ->
         let%map e = process t s in
         `Continue e)
     in
-    List.concat per_schedule
+    resolved @ List.concat per_schedule
   ;;
 
   let tick_one t id = with_schedule t id ~f:(fun s -> process t s >>| Result.return)

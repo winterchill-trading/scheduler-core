@@ -244,11 +244,46 @@ let%expect_test "skip, cancel and their refusals" =
     (Error (Unknown_schedule nope))
     (((key ((schedule rent) (due_date 2027-05-03))) (index 0)
       (state
-       (Finished (outcome Skipped) (attempts 1)
+       (Finished (outcome Skipped) (attempts 0)
         (finished_at "2027-05-02 22:00:00Z"))))
      ((key ((schedule rent) (due_date 2027-05-10))) (index 1)
       (state
        (Finished (outcome (Succeeded (reference pay-rent:2027-05-10)))
         (attempts 1) (finished_at "2027-05-09 22:00:00Z")))))
+    |}]
+;;
+
+let%expect_test "a date whose job may have run is never skipped or passed over" =
+  let manual, store, runner, id = setup ~start:"2027-05-03" Weekly in
+  Pay.crash_next := true;
+  (try ignore (R.tick runner : Runner.Execution.t list) with
+   | Failure _ -> ());
+  let show r =
+    print_s
+      [%sexp
+        (Result.map r ~f:(fun s -> Schedule.status s)
+         : (Schedule.Status.t, Runner.Command_error.t) Result.t)]
+  in
+  (* the owner pauses and tries to skip or resume past the date: both refused *)
+  show (R.pause runner id);
+  Clock.Manual.advance manual (Time_ns.Span.of_day 9.);
+  show (R.skip runner id);
+  show (R.resume runner id);
+  (* the next tick replays the stale claim even though the schedule is paused *)
+  print_executions (R.tick runner);
+  show (R.resume runner id);
+  print_schedule store id;
+  print_s [%sexp (!Pay.balance : int)];
+  [%expect
+    {|
+    (Ok (Paused By_owner))
+    (Error (Refused Not_active))
+    (Error Run_in_progress)
+    ((key ((schedule rent) (due_date 2027-05-03))) (index 0)
+     (status
+      (Ran (attempt 2) (outcome (Succeeded (reference pay-rent:2027-05-03))))))
+    (Ok Active)
+    ((status Active) (next (((index 2) (date 2027-05-17)))) (succeeded 1))
+    900
     |}]
 ;;

@@ -287,3 +287,56 @@ let%expect_test "a date whose job may have run is never skipped or passed over" 
     900
     |}]
 ;;
+
+let%expect_test "skip on a paused schedule, and a limit counting successful runs" =
+  Pay.reset ~balance:250;
+  let manual = Clock.Manual.create ~start:Time_ns.epoch ~zone:berlin in
+  Clock.Manual.set_date manual (d "2027-05-03");
+  let store = Store.create () in
+  let runner = R.create ~store ~clock:(Clock.Manual.clock manual) () in
+  let id = Schedule_id.create_exn "instalments" in
+  let recurrence =
+    Recurrence.create_exn Weekly ~start:(d "2027-05-03") ~max_occurrences:2 ()
+  in
+  let show r =
+    print_s
+      [%sexp
+        (Result.map r ~f:(fun s -> Schedule.status s, Schedule.next s)
+         : ( Schedule.Status.t * Schedule.Occurrence.t option
+             , Runner.Command_error.t )
+             Result.t)]
+  in
+  show
+    (R.add
+       runner
+       ~max_occurrences_counts:Successful_runs
+       ~id
+       { amount = 100; payee = "lender" }
+       recurrence);
+  print_executions (R.tick runner);
+  show (R.pause runner id);
+  (* A paused schedule is refused unless the caller asks for the paused behaviour. *)
+  show (R.skip runner id);
+  show (R.skip ~paused:true runner id);
+  Clock.Manual.set_date manual (d "2027-05-17");
+  show (R.resume runner id);
+  print_executions (R.tick runner);
+  print_schedule store id;
+  [%expect
+    {|
+    (Ok (Active (((index 0) (date 2027-05-03)))))
+    ((key ((schedule instalments) (due_date 2027-05-03))) (index 0)
+     (status
+      (Ran (attempt 1)
+       (outcome (Succeeded (reference pay-instalments:2027-05-03))))))
+    (Ok ((Paused By_owner) (((index 1) (date 2027-05-10)))))
+    (Error (Refused Not_active))
+    (Ok ((Paused By_owner) (((index 2) (date 2027-05-17)))))
+    (Ok (Active (((index 2) (date 2027-05-17)))))
+    ((key ((schedule instalments) (due_date 2027-05-17))) (index 2)
+     (status
+      (Ran (attempt 1)
+       (outcome (Succeeded (reference pay-instalments:2027-05-17))))))
+    ((status Completed) (next ()) (succeeded 2))
+    |}]
+;;

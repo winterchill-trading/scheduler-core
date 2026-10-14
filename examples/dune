@@ -1,7 +1,7 @@
 ; Examples are built with the rest of the project (and so in CI) but not installed.
 
-(executable
- (name three_jobs)
+(executables
+ (names quick_start three_jobs)
  (libraries core scheduler-core)
  (preprocess
   (pps ppx_jane)))

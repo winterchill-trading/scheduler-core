@@ -120,6 +120,21 @@ sexp forms with pinned digests; reading validates. Schedules also have `Stable.V
 which carries `max_occurrences_counts`; store new rows with V2 (it reads V1 sexps, and
 V1 refuses to write a schedule counting successful runs rather than drop the setting).
 
+A service that already keeps its own columns for a recurring job (last paid date, number
+of payments, state) does not need to store the schedule itself. `Schedule.restore`
+rebuilds it from a `Schedule.Position` without replaying history:
+
+```ocaml
+let schedule =
+  Schedule.restore ~id ~job recurrence
+    { through = Some last_paid_on; succeeded = payments_made
+    ; consecutive_failures = 0; status = Active }
+  |> Result.ok_or_failwith (* or map Restore_error.t onto the service's errors *)
+```
+
+`through` is the last date behind the schedule; any date works, and the schedule
+continues from its first date after it. `Schedule.position` gives the position back.
+
 ## Relation to payments-core
 
 `payments-core` has `Schedule` and `Standing_order`, which tie a recurrence to a
@@ -136,7 +151,8 @@ any service. A standing order is a `Job` here whose `run` builds the transfer.
 Expect tests pin the dates, the transitions and the runner's behaviour around crashes,
 gaps and failures. Quickcheck properties check that dates strictly increase and respect
 their bounds, that monthly dates depend only on their index, that the arithmetic index
-lookups agree with a scan, that due dates are contiguous, and that two runners sharing
+lookups agree with a scan, that due dates are contiguous, that a schedule restored from
+its position and then run equals the original run from its history, and that two runners sharing
 a store with random clock jumps, crashes, pauses, resumes and skips never run a date's
 first attempt twice and never record a missed or skipped date whose job ran.
 

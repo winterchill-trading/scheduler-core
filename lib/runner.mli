@@ -39,7 +39,7 @@ module Command_error : sig
   type t =
     | Unknown_schedule of Schedule_id.t
     | Duplicate_schedule of Schedule_id.t
-    | Invalid_job of Error.t (** {!Job.S.validate} refused the recurrence *)
+    | Invalid_job of Error.t (** [Job.S.validate] refused the recurrence *)
     | Refused of Schedule.Refusal.t
     | Run_in_progress
     (** the next date carries a run claim (running now, or stale and waiting for the next

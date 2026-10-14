@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- `Schedule.Max_occurrences_counts` and `?max_occurrences_counts` on `Schedule.create`
+  and `Runner.add`: with `Successful_runs`, a recurrence's `max_occurrences` counts
+  successful runs, so skipped, missed and failed dates do not use it up (an end date
+  still applies). The default, `Dates`, is unchanged.
+- `Schedule.next_to_skip ?today`: a paused schedule can name the date resuming on
+  `today` would run first, and `Runner.skip ~paused:true` skips it while the schedule
+  stays paused. Without the option paused schedules are refused as before.
+- `Schedule.Stable.V2` with the new field. `Stable.V1` keeps its shape and digest, reads
+  as `Dates`, and refuses to write a schedule counting successful runs.
+- `Recurrence.without_max_occurrences`.
+
 ## 0.1.0
 
 First version prepared for opam; not yet published.

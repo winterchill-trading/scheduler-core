@@ -48,3 +48,33 @@
     (< v0.19~)))
   (base_quickcheck :with-test)
   (odoc :with-doc)))
+
+(package
+ (name scheduler-core-cli)
+ (synopsis "Command-line tool that lists the dates of a recurring schedule")
+ (description
+  "The scheduler-dates command prints the run dates of a recurrence (frequency, start, end, maximum count, day of month) and which date is due on a given day. Built on the scheduler-core library.")
+ (tags
+  (scheduler recurring cli oxcaml))
+ (depends
+  oxcaml
+  (ocaml
+   (and
+    (>= 5.2.0)
+    (< 5.3~)))
+  dune
+  (scheduler-core
+   (= :version))
+  (core
+   (and
+    (>= v0.18~preview.130.106+341)
+    (< v0.19~)))
+  (core_unix
+   (and
+    (>= v0.18~preview.130.106+341)
+    (< v0.19~)))
+  (ppx_jane
+   (and
+    (>= v0.18~preview.130.106+341)
+    (< v0.19~)))
+  (odoc :with-doc)))

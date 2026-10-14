@@ -1,0 +1,7 @@
+(executable
+ (name main)
+ (public_name scheduler-dates)
+ (package scheduler-core-cli)
+ (libraries core core_unix.command_unix scheduler-core)
+ (preprocess
+  (pps ppx_jane)))

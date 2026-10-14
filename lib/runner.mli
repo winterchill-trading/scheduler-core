@@ -41,7 +41,9 @@ module Command_error : sig
     | Duplicate_schedule of Schedule_id.t
     | Invalid_job of Error.t (** {!Job.S.validate} refused the recurrence *)
     | Refused of Schedule.Refusal.t
-    | Run_in_progress (** the next date is being run right now *)
+    | Run_in_progress
+    (** the next date carries a run claim (running now, or stale and waiting for the next
+        tick to replay it) *)
   [@@deriving sexp_of]
 end
 
@@ -70,10 +72,11 @@ module Make
 
   val pause : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
-  (** Resumes from the first date on or after today (in the clock's zone). *)
+  (** Resumes from the first date on or after today (in the clock's zone). Refused with
+      [Run_in_progress] while the next date carries a run claim. *)
   val resume : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
-  (** Refused with [Run_in_progress] while the next date is being run. *)
+  (** Refused with [Run_in_progress] while the next date carries a run claim. *)
   val cancel : t -> Schedule_id.t -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
   (** Settles the next date as {!Outcome.Skipped}. Refused with [Run_in_progress] while
@@ -87,7 +90,8 @@ module Make
     -> Job.t
     -> (Job.t Schedule.t, Command_error.t) Result.t M.t
 
-  (** Runs what is due on every active schedule, one schedule after another. *)
+  (** Replays stale claims on schedules that are not active, then runs what is due on
+      every active schedule, one schedule after another. *)
   val tick : t -> Execution.t list M.t
 
   (** Runs what is due on one schedule (an operator's "run now" or a demo control). *)

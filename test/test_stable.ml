@@ -11,6 +11,7 @@ let%expect_test "stable digests" =
   print_endline [%bin_digest: Outcome.Stable.V1.t];
   print_endline [%bin_digest: Run_record.Stable.V1.t];
   print_endline [%bin_digest: unit Schedule.Stable.V1.t];
+  print_endline [%bin_digest: unit Schedule.Stable.V2.t];
   [%expect
     {|
     d9a8da25d5656b016fb4dbdc2e4197fb
@@ -20,6 +21,7 @@ let%expect_test "stable digests" =
     7ddb69cbfaf347f0c2396d9fb8aa5e69
     35d0c114b591cec781b5048028698222
     54fd0457efcc6bb3b5cd07b6ba3e9939
+    4f2cc541b520dccf760152a663acda7c
     |}]
 ;;
 

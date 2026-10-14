@@ -23,7 +23,11 @@ orders, recurring buys, payroll runs, reminders, rule evaluations.
   with the reason. Resuming continues from the first date on or after today; dates that
   passed while paused are not paid.
 - **Pause, resume, skip, cancel**, with refusals as values a service maps to its own
-  error codes.
+  error codes. A paused schedule can skip the date it would run first after resuming
+  (`Runner.skip ~paused:true`).
+- **Count dates or successful runs.** `max_occurrences` bounds the dates by default;
+  with `~max_occurrences_counts:Successful_runs` "twelve instalments" means twelve
+  successful runs, and skipped, missed or failed dates do not use one up.
 
 ## Why separate
 
@@ -112,7 +116,9 @@ database; the only hard requirement is that `claim` and `settle_unclaimed` are a
 run key (an insert that fails on a duplicate, or a compare-and-set). Run
 `Store_conformance.Make` against the implementation in the service's test suite; it is
 the same suite `Store_memory` passes. All persisted types have `Stable.V1` bin_prot and
-sexp forms with pinned digests; reading validates.
+sexp forms with pinned digests; reading validates. Schedules also have `Stable.V2`,
+which carries `max_occurrences_counts`; store new rows with V2 (it reads V1 sexps, and
+V1 refuses to write a schedule counting successful runs rather than drop the setting).
 
 ## Relation to payments-core
 

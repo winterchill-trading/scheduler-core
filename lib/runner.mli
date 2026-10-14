@@ -54,6 +54,11 @@ module Make
     (M : Monad.S)
     (Job : Job.S with type 'a io := 'a M.t)
     (Store : Store.S with type 'a io := 'a M.t and type job := Job.t) : sig
+  (** Re-exported so [Runner.Make (...)] can be bound to a module named [Runner]. *)
+  module Execution = Execution
+
+  module Command_error = Command_error
+
   type t
 
   val create : ?stale_after:Time_ns.Span.t -> store:Store.t -> clock:Clock.t -> unit -> t

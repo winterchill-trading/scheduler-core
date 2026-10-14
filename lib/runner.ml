@@ -38,6 +38,8 @@ module Make
     (Job : Job.S with type 'a io := 'a M.t)
     (Store : Store.S with type 'a io := 'a M.t and type job := Job.t) =
 struct
+  module Execution = Execution
+  module Command_error = Command_error
   open M.Let_syntax
 
   type t =

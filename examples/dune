@@ -1,0 +1,16 @@
+; Examples are built with the rest of the project (and so in CI) but not installed.
+
+(executable
+ (name three_jobs)
+ (libraries core scheduler-core)
+ (preprocess
+  (pps ppx_jane)))
+
+(rule
+ (alias runtest)
+ (action
+  (progn
+   (with-stdout-to
+    three_jobs.output
+    (run %{exe:three_jobs.exe}))
+   (diff three_jobs.expected three_jobs.output))))

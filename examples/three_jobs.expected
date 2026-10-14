@@ -1,0 +1,37 @@
+added rent
+added etf
+(refused etf-daily (e (Invalid_job "recurring buys run weekly or monthly")))
+added plants
+-- 2027-01-31
+etf:2027-01-31 ok order-etf:2027-01-31
+plants:2027-01-31 ok message-plants:2027-01-31
+rent:2027-01-31 ok payment-rent:2027-01-31
+-- 2027-02-07
+etf:2027-02-07 ok order-etf:2027-02-07
+-- 2027-02-28
+etf:2027-02-14 missed
+etf:2027-02-21 missed
+etf:2027-02-28 ok order-etf:2027-02-28
+plants:2027-02-14 missed
+plants:2027-02-28 ok message-plants:2027-02-28
+rent:2027-02-28 ok payment-rent:2027-02-28
+-- 2027-03-31
+etf:2027-03-07 missed
+etf:2027-03-14 missed
+etf:2027-03-21 missed
+etf:2027-03-28 ok order-etf:2027-03-28
+plants:2027-03-14 missed
+plants:2027-03-28 ok message-plants:2027-03-28
+rent:2027-03-31 failed insufficient_funds
+-- 2027-04-30
+etf:2027-04-04 missed
+etf:2027-04-11 missed
+etf:2027-04-18 missed
+etf:2027-04-25 ok order-etf:2027-04-25
+plants:2027-04-11 missed
+plants:2027-04-25 ok message-plants:2027-04-25
+rent:2027-04-30 failed insufficient_funds
+-- schedules
+etf Active, next 2027-05-02
+plants Active, next 2027-05-09
+rent Active, next 2027-05-31

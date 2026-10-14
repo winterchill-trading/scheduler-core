@@ -141,6 +141,10 @@ first attempt twice and never record a missed or skipped date whose job ran.
 - Business-day calendars (move a date off a weekend or holiday) are left to the job or
   the caller.
 
+## For agents
+
+[`AGENTS.md`](AGENTS.md) has the build commands, conventions and pitfalls.
+
 ## Used by
 
 No org repositories yet.

@@ -7,3 +7,4 @@ module Clock = Clock
 module Run_key = Run_key
 module Outcome = Outcome
 module Run_record = Run_record
+module Schedule = Schedule

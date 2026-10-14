@@ -11,3 +11,7 @@
    (:standard -source-tree-root .)))
  (preprocess
   (pps ppx_jane)))
+
+(cram
+ (package scheduler-core-cli)
+ (deps %{bin:scheduler-dates}))

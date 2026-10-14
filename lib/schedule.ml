@@ -335,7 +335,104 @@ let upcoming ?limit t ~from ~until =
     |> List.map ~f:(fun (index, date) -> { Occurrence.index; date })
 ;;
 
+module Position = struct
+  module V1 = struct
+    type t =
+      { through : Date.Stable.V1.t option
+      ; succeeded : int
+      ; consecutive_failures : int
+      ; status : Repr.V1.Status.t
+      }
+    [@@deriving bin_io, sexp, compare, equal]
+  end
+
+  include V1
+end
+
+module Restore_error = struct
+  type t =
+    | Negative_count of
+        { succeeded : int
+        ; consecutive_failures : int
+        }
+    | More_outcomes_than_dates of
+        { outcomes : int
+        ; dates : int
+        }
+    | Failures_not_paused of
+        { consecutive_failures : int
+        ; max_consecutive_failures : int
+        }
+  [@@deriving sexp, compare, equal]
+end
+
+let position t =
+  { Position.through =
+      (if t.next_index = 0 then None else Recurrence.date (dates t) (t.next_index - 1))
+  ; succeeded = t.succeeded
+  ; consecutive_failures = t.consecutive_failures
+  ; status = t.status
+  }
+;;
+
+let restore
+  ?max_consecutive_failures
+  ?missed_policy
+  ?max_occurrences_counts
+  ~id
+  ~job
+  recurrence
+  (p : Position.t)
+  =
+  let t =
+    create
+      ?max_consecutive_failures
+      ?missed_policy
+      ?max_occurrences_counts
+      ~id
+      ~job
+      recurrence
+  in
+  (* Dates strictly increase, so the count of dates on or before [through] is the index of
+     the first date not yet behind the schedule. *)
+  let next_index =
+    match p.through with
+    | None -> 0
+    | Some d ->
+      Option.value_map (Recurrence.last_index_on_or_before (dates t) d) ~default:0 ~f:succ
+  in
+  let outcomes = p.succeeded + p.consecutive_failures in
+  if p.succeeded < 0 || p.consecutive_failures < 0
+  then
+    Error
+      (Restore_error.Negative_count
+         { succeeded = p.succeeded; consecutive_failures = p.consecutive_failures })
+  else if outcomes > next_index
+  then Error (More_outcomes_than_dates { outcomes; dates = next_index })
+  else if Status.equal p.status Active
+          && p.consecutive_failures >= t.max_consecutive_failures
+  then
+    Error
+      (Failures_not_paused
+         { consecutive_failures = p.consecutive_failures
+         ; max_consecutive_failures = t.max_consecutive_failures
+         })
+  else
+    Ok
+      (complete_if_done
+         { t with
+           next_index
+         ; succeeded = p.succeeded
+         ; consecutive_failures = p.consecutive_failures
+         ; status = p.status
+         })
+;;
+
 module Stable = struct
+  module Position = struct
+    module V1 = Position.V1
+  end
+
   module V1 = struct
     type nonrec 'job t = 'job t [@@deriving compare, equal]
 

@@ -166,7 +166,68 @@ val next_to_skip : ?today:Date.t -> _ t -> (Occurrence.t, Refusal.t) Result.t
     most the runs still owed are listed. *)
 val upcoming : ?limit:int -> _ t -> from:Date.t -> until:Date.t -> Occurrence.t list
 
+(** Where a schedule has got to, as a service that keeps its own columns (last paid date,
+    number of payments, state) stores it. {!restore} rebuilds the schedule from it without
+    replaying run history. *)
+module Position : sig
+  type t =
+    { through : Date.t option
+    (** the last date behind the schedule: its last paid date when every date so far was
+        paid, otherwise the last date settled in any way (paid, failed, skipped, missed)
+        or passed over by {!resume}. [None] when no date is behind it. Any date may be
+        given: the schedule continues from its first date after [through]. *)
+    ; succeeded : int (** dates that succeeded so far *)
+    ; consecutive_failures : int
+    (** failed dates in a row at the end, 0 if the last did not fail *)
+    ; status : Status.t
+    }
+  [@@deriving sexp, compare, equal]
+end
+
+(** Why {!restore} refused a position. *)
+module Restore_error : sig
+  type t =
+    | Negative_count of
+        { succeeded : int
+        ; consecutive_failures : int
+        }
+    | More_outcomes_than_dates of
+        { outcomes : int (** [succeeded + consecutive_failures] *)
+        ; dates : int (** dates on or before [through] *)
+        } (** more successes and failures than there are dates up to [through] *)
+    | Failures_not_paused of
+        { consecutive_failures : int
+        ; max_consecutive_failures : int
+        } (** an active schedule with as many failures in a row as pause it *)
+  [@@deriving sexp, compare, equal]
+end
+
+(** The position of a schedule; [restore] of it with the same settings gives the schedule
+    back. *)
+val position : _ t -> Position.t
+
+(** A schedule with {!create}'s settings placed at [position], as if the dates up to
+    [position.through] had been settled. Running it from there (settling, pausing,
+    resuming) gives the same schedule as running the original from its history. A schedule
+    whose last date is behind it completes, as {!settle} would have completed it. Raises
+    as {!create} does. *)
+val restore
+  :  ?max_consecutive_failures:int
+  -> ?missed_policy:Missed_policy.t
+  -> ?max_occurrences_counts:Max_occurrences_counts.t
+  -> id:Schedule_id.t
+  -> job:'job
+  -> Recurrence.t
+  -> Position.t
+  -> ('job t, Restore_error.t) Result.t
+
 module Stable : sig
+  module Position : sig
+    module V1 : sig
+      type t = Position.t [@@deriving bin_io, sexp, compare, equal]
+    end
+  end
+
   module V1 : sig
     (** The original shape, without [max_occurrences_counts]: reading gives [Dates];
         writing a schedule that counts [Successful_runs] raises (use {!V2}). *)

@@ -28,6 +28,7 @@ let frequency (t : t) = t.frequency
 let start (t : t) = t.start
 let end_date (t : t) = t.end_date
 let max_occurrences (t : t) = t.max_occurrences
+let without_max_occurrences (t : t) = { t with max_occurrences = None }
 
 (* Months since year 0, so adding [k] months is integer arithmetic and the month and year
    come back with [/] and [mod]. *)

@@ -45,6 +45,9 @@ val start : t -> Date.t
 val end_date : t -> Date.t option
 val max_occurrences : t -> int option
 
+(** The same dates with no [max_occurrences] bound (an [end_date] still applies). *)
+val without_max_occurrences : t -> t
+
 (** Date number [i], or [None] when [i] is negative or the date is beyond the end (a
     {!Frequency.Once} recurrence has only date 0). *)
 val date : t -> int -> Date.t option
